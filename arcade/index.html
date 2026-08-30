@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The Cousins' Arcade</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta property="og:title" content="The Cousins' Arcade 🕹️">
+<meta property="og:description" content="Three games made with love for Emma, Ava and Sienna: Schmackberry's, Bear Tavern, and Dance Studio.">
+<meta property="og:image" content="https://mike2002w.github.io/games/arcade/arcade-preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://mike2002w.github.io/games/arcade/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  :root{
+    --berry:#E0403E; --berry-dark:#B02B2E; --pink:#FFE9EC; --cream:#FFF8F0;
+    --wood:#6B4423; --wood-dark:#4A2E15; --parch:#FFF3DF; --choc:#54341F;
+    --display:"Chalkboard SE","Comic Sans MS","Marker Felt",ui-rounded,-apple-system,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{min-height:100%}
+  body{font-family:var(--display);color:var(--choc);text-align:center;
+    background:linear-gradient(105deg,var(--pink) 0 50%,#EBD6B0 50% 100%);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:22px 12px;gap:6px}
+  .marquee{display:inline-block;background:var(--cream);border:5px solid var(--choc);
+    border-radius:22px;padding:8px 26px 12px;box-shadow:0 6px 0 rgba(84,52,31,.35)}
+  h1{font-size:clamp(26px,7vw,46px);line-height:1.1;color:var(--berry);
+    text-shadow:0 2px 0 #fff}
+  .marquee small{display:block;font-size:clamp(13px,3.2vw,17px);color:#8A6B45}
+  #cards{display:flex;flex-wrap:wrap;gap:clamp(10px,3vw,26px);justify-content:center;align-items:stretch;
+    margin-top:16px;width:100%;max-width:980px}
+  .gameCard{flex:1 1 240px;max-width:320px;min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px;
+    border-radius:22px;padding:16px 10px 14px;text-decoration:none;color:inherit;
+    border:4px solid var(--choc);transition:transform .12s;position:relative}
+  .gameCard:hover,.gameCard:focus-visible{transform:translateY(-4px) scale(1.02)}
+  .gameCard:active{transform:translateY(2px)}
+  .gameCard.berrycard{background:var(--pink);box-shadow:0 6px 0 var(--berry-dark)}
+  .gameCard.bearcard{background:var(--parch);box-shadow:0 6px 0 var(--wood-dark)}
+  .gameCard.dancecard{background:#F0E9FF;box-shadow:0 6px 0 #54348A}
+  .dancecard h2{color:#7A4FBF}
+  .dancecard .playBtn{background:#7A4FBF;box-shadow:0 4px 0 #54348A}
+  .art{font-size:clamp(44px,12vw,76px);line-height:1.15}
+  .gameCard h2{font-size:clamp(17px,4.4vw,26px);line-height:1.15;text-wrap:balance}
+  .berrycard h2{color:var(--berry)}
+  .bearcard h2{color:var(--wood)}
+  .gameCard p{font-size:clamp(11px,2.8vw,15px);color:#7A5233;line-height:1.3;max-width:26ch}
+  .playBtn{margin-top:auto;display:inline-block;font-family:var(--display);
+    font-size:clamp(15px,4vw,21px);color:#fff;border-radius:14px;padding:8px 26px}
+  .berrycard .playBtn{background:var(--berry);box-shadow:0 4px 0 var(--berry-dark)}
+  .bearcard .playBtn{background:var(--wood);box-shadow:0 4px 0 var(--wood-dark)}
+  footer{margin-top:18px;font-size:clamp(11px,2.8vw,14px);color:#8A6B45}
+  .bestLine{font-weight:bold;color:#54341F;min-height:1.1em;font-size:clamp(11px,2.9vw,15px)}
+  #lbWrap{margin-top:20px;width:100%;max-width:980px}
+  #lbWrap.hiddenLB{display:none}
+  #lbWrap h3{font-size:clamp(20px,5vw,30px);color:#54341F;margin-bottom:8px}
+  #lbBoards{display:flex;flex-wrap:wrap;gap:14px;justify-content:center}
+  .lbBoard{flex:1 1 220px;max-width:300px;background:var(--cream);border:4px solid var(--choc);
+    border-radius:18px;padding:10px 12px;box-shadow:0 5px 0 rgba(84,52,31,.3)}
+  .lbBoard h4{font-size:clamp(14px,3.4vw,18px);margin-bottom:6px}
+  .lbBoard ol{list-style:none;text-align:left}
+  .lbBoard li{display:flex;justify-content:space-between;gap:6px;
+    font-family:-apple-system,"SF Pro Rounded",Segoe UI,Roboto,sans-serif;font-weight:700;
+    font-size:clamp(12px,3vw,15px);padding:2px 0;border-bottom:1px dashed #D9C9B5}
+  .lbBoard li:last-child{border-bottom:none}
+  .lbBoard .mode{color:#8A6B45;font-weight:600;font-size:.85em}
+</style>
+</head>
+<body>
+  <div class="marquee">
+    <h1>🕹️ The Cousins' Arcade</h1>
+    <small>Made with love for Emma, Ava &amp; Sienna 💕</small>
+  </div>
+  <div id="cards">
+    <a class="gameCard berrycard" href="schmackberrys.html">
+      <div class="art">🍓🥄</div>
+      <h2>Welcome to Schmackberry's</h2>
+      <p>Fling chicken balls, crunchy bread, cupcakes and Chobani into the cousins' mouths. Watch out for Robe and Gaga!</p>
+      <p class="bestLine" id="bestS"></p>
+      <span class="playBtn">PLAY ▶</span>
+    </a>
+    <a class="gameCard bearcard" href="bear-tavern.html">
+      <div class="art">🐻🚀</div>
+      <h2>Bear Tavern: Kidney Stone Rescue</h2>
+      <p>Blast the kidney stones on the X-ray, fly the rocket, and serve every bear a Shir Ami challah.</p>
+      <p class="bestLine" id="bestB"></p>
+      <span class="playBtn">PLAY ▶</span>
+    </a>
+    <a class="gameCard dancecard" href="dance-studio.html">
+      <div class="art">💃🎵</div>
+      <h2>Dance Studio</h2>
+      <p>Watch the cousins' made-up dance, then tap the moves back in order. Every round adds one more!</p>
+      <p class="bestLine" id="bestD"></p>
+      <span class="playBtn">PLAY ▶</span>
+    </a>
+  </div>
+  <div id="lbWrap" class="hiddenLB">
+    <h3>🏆 Family Leaderboard</h3>
+    <div id="lbBoards"></div>
+  </div>
+  <footer>Chefs Erica &amp; Alex · Cleanup by Allie &amp; Michael · Challah by Robe · Cheers by Gaga</footer>
+  <script>
+    function g(k){ try{ return +localStorage.getItem(k)||0; }catch(e){ return 0; } }
+    function stars(k){ const n=g(k); return n?" "+"⭐".repeat(n):""; }
+    const se=g("schmack_best_easy"), sh=g("schmack_best_rush");
+    if(se||sh) document.getElementById("bestS").textContent=
+      "Best: "+se+" Easy"+stars("schmack_stars_easy")+" · "+sh+" Hard"+stars("schmack_stars_rush");
+    const ba=g("beartavern_best_aster"), bf=g("beartavern_best_forever");
+    if(ba||bf) document.getElementById("bestB").textContent=
+      "Best: "+ba+" Asteroids · "+bf+" Blaster";
+    const de=g("dance_best_easy"), dh=g("dance_best_hard");
+    if(de||dh) document.getElementById("bestD").textContent=
+      "Best: "+de+" Easy"+stars("dance_stars_easy")+" · "+dh+" Hard"+stars("dance_stars_hard");
+    // family leaderboard
+    const LB_URL="https://jsonblob.com/api/jsonBlob/019f870b-d765-7dbb-9c45-b8ee256e007f";
+    const LB_META={
+      schmack:{title:"🍓 Schmackberry's",modes:{easy:"Easy",rush:"Hard"}},
+      bear:{title:"🐻 Bear Tavern",modes:{forever:"Blaster",aster:"Asteroids"}},
+      dance:{title:"💃 Dance Studio",modes:{easy:"Easy",hard:"Hard"}}
+    };
+    fetch(LB_URL,{cache:"no-store"}).then(r=>r.json()).then(d=>{
+      const list=(d&&Array.isArray(d.scores))?d.scores:[];
+      if(!list.length) return;
+      const boards=document.getElementById("lbBoards");
+      let any=false;
+      for(const gm of ["schmack","bear","dance"]){
+        const rows=list.filter(e=>e.g===gm).sort((a,b)=>(b.s||0)-(a.s||0)).slice(0,5);
+        if(!rows.length) continue;
+        any=true;
+        boards.insertAdjacentHTML("beforeend",
+          `<div class="lbBoard"><h4>${LB_META[gm].title}</h4><ol>`+
+          rows.map((e,i)=>`<li><span>${i+1}. ${String(e.n||"?").replace(/[<>&]/g,"").slice(0,12)}</span>`+
+            `<span><b>${+e.s||0}</b> <span class="mode">${LB_META[gm].modes[e.m]||""}</span></span></li>`).join("")+
+          `</ol></div>`);
+      }
+      if(any) document.getElementById("lbWrap").classList.remove("hiddenLB");
+    }).catch(()=>{});
+  </script>
+</body>
+</html>

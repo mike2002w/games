@@ -114,7 +114,7 @@
       "Best: "+de+" Easy"+stars("dance_stars_easy")+" · "+dh+" Hard"+stars("dance_stars_hard");
     // family leaderboard (shared store, same pattern as stay-dry.html)
     // Set FB_URL to the database URL from the Firebase console (looks like https://<project>-default-rtdb.firebaseio.com). Empty = fall back to the kvdb.io bucket.
-    const FB_URL="";
+    const FB_URL="https://family-games-f0852-default-rtdb.firebaseio.com";
     const KV_URL="https://kvdb.io/urf38N9LXMNzSdbEGoX8K";
     function storeErr(tag,r){ const e=new Error(tag+" "+r.status); e.status=r.status; return e; }
     function asList(v){ return Array.isArray(v)?v:(v&&typeof v==="object"?Object.values(v):[]); }

@@ -506,7 +506,7 @@ const post=document.getElementById('post'),pname=document.getElementById('pname'
 const LB={db:null,mode:null,ready:false,rows:[],dance:[],loaded:false,err:false,readOnly:false,msg:'',posting:false,posted:false,lastKv:-99};
 // Shared store for copies outside claude.ai (GitHub Pages). Preferred: Firebase Realtime Database over REST, two JSON lists under /staydry.
 // Set FB_URL to the database URL from the Firebase console (looks like https://<project>-default-rtdb.firebaseio.com). Empty = fall back to the kvdb.io bucket.
-const FB_URL='';
+const FB_URL='https://family-games-f0852-default-rtdb.firebaseio.com';
 const KV_URL='https://kvdb.io/urf38N9LXMNzSdbEGoX8K';
 const STORE=FB_URL?{
   name:'firebase',keys:{scores:'scores',dance:'dance'},

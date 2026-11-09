@@ -1166,9 +1166,20 @@ function toMenu(){
   loadTitleLb();
 }
 
-/* ---------- family leaderboard ---------- */
-const LB_URL="https://jsonblob.com/api/jsonBlob/019f870b-d765-7dbb-9c45-b8ee256e007f";
-const LB_GAME="bear";
+/* ---------- family leaderboard (kvdb.io, shared with the Arcade page) ---------- */
+// One kvdb key per game, each a JSON array of {id,name,score,mode,stars,at}. Anyone with the link can post.
+const KV_URL="https://kvdb.io/urf38N9LXMNzSdbEGoX8K";
+const LB_KEY="arcade_bear";
+async function kvGet(key){
+  const r=await fetch(KV_URL+"/"+key+"?t="+Date.now(),{cache:"no-store"});
+  if(r.status===404) return [];
+  if(!r.ok){ const e=new Error("kv "+r.status); e.status=r.status; throw e; }
+  const v=await r.json(); return Array.isArray(v)?v:[];
+}
+async function kvPut(key,val){
+  const r=await fetch(KV_URL+"/"+key,{method:"POST",body:JSON.stringify(val)});
+  if(!r.ok){ const e=new Error("kv "+r.status); e.status=r.status; throw e; }
+}
 async function postScore(){
   const btn=$("lbPost"), msg=$("lbMsg");
   const name=($("lbName").value||"").replace(/[<>&"]/g,"").trim().slice(0,12);
@@ -1176,19 +1187,22 @@ async function postScore(){
   if(score<=0){ msg.textContent="Score some points first!"; return; }
   btn.disabled=true; msg.textContent="Posting…";
   try{ localStorage.setItem("arcade_name",name); }catch(e){}
+  const id=name.toLowerCase().replace(/[^a-z0-9_\-]/g,"")||"player";
   try{
-    const r=await fetch(LB_URL,{cache:"no-store"});
-    const data=await r.json();
-    const list=(data&&Array.isArray(data.scores))?data.scores:[];
-    list.push({n:name,g:LB_GAME,m:mode,s:score,t:Date.now()});
-    const byG={};
-    for(const e of list){ (byG[e.g]=byG[e.g]||[]).push(e); }
-    const trimmed=[].concat(...Object.values(byG).map(a=>a.sort((x,y)=>(y.s||0)-(x.s||0)).slice(0,50)));
-    await fetch(LB_URL,{method:"PUT",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({scores:trimmed})});
+    const list=await kvGet(LB_KEY);
+    const prev=list.find(e=>e.id===id&&e.mode===mode);
+    if(prev&&(+prev.score||0)>=score){
+      msg.textContent=name+"'s best is still "+(+prev.score||0)+" 🏆"; btn.disabled=false; return;
+    }
+    const next=list.filter(e=>!(e.id===id&&e.mode===mode));
+    next.push({id,name,score:score,mode,stars:0,at:new Date().toISOString()});
+    next.sort((a,b)=>(b.score||0)-(a.score||0));
+    await kvPut(LB_KEY,next.slice(0,50));
     msg.textContent="Posted! Check the Arcade page 🏆";
+    loadTitleLb();
   }catch(e){
-    msg.textContent="Couldn't reach the leaderboard. Try again on the family website!";
+    msg.textContent=(e&&e.status===403)?"Scoreboard is not activated yet"
+      :"Couldn't reach the leaderboard. Try again on the family website!";
     btn.disabled=false;
   }
 }
@@ -1199,14 +1213,11 @@ try{ $("lbName").value=localStorage.getItem("arcade_name")||""; }catch(e){}
 const LB_MODES={forever:"Blaster",aster:"Asteroids"};
 async function loadTitleLb(){
   try{
-    const r=await fetch(LB_URL,{cache:"no-store"});
-    const d=await r.json();
-    const rows=((d&&d.scores)||[]).filter(e=>e.g===LB_GAME)
-      .sort((a,b)=>(b.s||0)-(a.s||0)).slice(0,5);
+    const rows=(await kvGet(LB_KEY)).slice().sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,5);
     if(!rows.length) return;
     $("titleLbList").innerHTML=rows.map((e,i)=>
-      `<li><span>${i+1}. ${String(e.n||"?").replace(/[<>&]/g,"").slice(0,12)}</span>`+
-      `<span><b>${+e.s||0}</b> <span class="mode">${LB_MODES[e.m]||""}</span></span></li>`).join("");
+      `<li><span>${i+1}. ${String(e.name||"?").replace(/[<>&]/g,"").slice(0,12)}</span>`+
+      `<span><b>${+e.score||0}</b> <span class="mode">${LB_MODES[e.mode]||""}</span></span></li>`).join("");
     $("titleLb").classList.remove("hiddenLB");
   }catch(e){}
 }

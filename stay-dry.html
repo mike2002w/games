@@ -482,7 +482,7 @@ function drawResults(){drawSky();drawBanks(false);drawWater(125,760);
   // family leaderboard
   ctx.fillStyle='rgba(255,255,255,.06)';rr(30,398,W-60,160,14);ctx.fill();
   txt('FAMILY TOP 5',44,412,11,'#9fb3d1','left',700);
-  if(!LB.ready){txt('The family leaderboard works when this is opened',W/2,452,12,'#9fb3d1');txt('from the claude.ai link while signed in.',W/2,468,12,'#9fb3d1');txt('Your own best is saved on this device.',W/2,492,12,'#6f86a8');}
+  if(!LB.ready){txt('Family leaderboard is offline right now.',W/2,460,12,'#9fb3d1');txt('Your own best is saved on this device.',W/2,480,12,'#6f86a8');}
   else{if(LB.readOnly||LB.err){txt(LB.msg||'Leaderboard unavailable',W/2,440,12,'#f4a261');}
     const top=LB.rows.slice(0,5);const y0=LB.readOnly||LB.err?462:470;
     if(!top.length){txt(LB.loaded?'No scores yet. Be the first!':'Loading...',W/2,y0+20,12,'#9fb3d1');}
@@ -503,20 +503,29 @@ function drawResults(){drawSky();drawBanks(false);drawWater(125,760);
 
 // ---------- family leaderboard (artifact db; absent when opened without it)
 const post=document.getElementById('post'),pname=document.getElementById('pname'),pbtn=document.getElementById('pbtn');
-const LB={db:null,ready:false,rows:[],dance:[],loaded:false,err:false,readOnly:false,msg:'',posting:false,posted:false};
+const LB={db:null,mode:null,ready:false,rows:[],dance:[],loaded:false,err:false,readOnly:false,msg:'',posting:false,posted:false,lastKv:-99};
+// Fallback store for copies outside claude.ai (GitHub Pages): kvdb.io bucket, two JSON lists. Anyone with the link can post; scores are tamperable by design.
+const KV_URL='https://kvdb.io/urf38N9LXMNzSdbEGoX8K',KV_KEYS={scores:'staydry_scores',dance:'staydry_dance'};
+async function kvGet(key){const r=await fetch(KV_URL+'/'+key+'?t='+Date.now(),{cache:'no-store'});if(r.status===404)return[];if(!r.ok)throw new Error('kv '+r.status);const v=await r.json();return Array.isArray(v)?v:[];}
+async function kvPut(key,val){const r=await fetch(KV_URL+'/'+key,{method:'POST',body:JSON.stringify(val)});if(!r.ok){const e=new Error('kv '+r.status);e.status=r.status;throw e;}}
+async function kvRefresh(){if(LB.mode!=='kv')return;LB.lastKv=perf;try{const[a,b]=await Promise.all([kvGet(KV_KEYS.scores),kvGet(KV_KEYS.dance)]);LB.rows=a.slice().sort((x,y)=>y.score-x.score).slice(0,10);LB.dance=b.slice().sort((x,y)=>y.score-x.score).slice(0,10);LB.loaded=true;LB.err=false;}catch(e){if(!LB.loaded){LB.err=true;LB.msg='Leaderboard offline right now';}}}
+async function initKv(){try{const[a,b]=await Promise.all([kvGet(KV_KEYS.scores),kvGet(KV_KEYS.dance)]);LB.mode='kv';LB.ready=true;LB.loaded=true;LB.lastKv=perf;LB.rows=a.slice().sort((x,y)=>y.score-x.score).slice(0,10);LB.dance=b.slice().sort((x,y)=>y.score-x.score).slice(0,10);}catch(e){}}
 try{pname.value=load('staydry_name','');}catch(e){}
-(async()=>{try{if(!window.claude||typeof window.claude.use!=='function')return;const db=await window.claude.use('db');if(!db)return;LB.db=db;LB.ready=true;
+(async()=>{try{if(!window.claude||typeof window.claude.use!=='function'){await initKv();return;}const db=await window.claude.use('db');if(!db){await initKv();return;}LB.db=db;LB.mode='db';LB.ready=true;
   const timer=setTimeout(()=>{if(!LB.loaded)LB.msg='Leaderboard is slow to load...';},10000);
   db.collection('scores').orderBy('score','desc').limit(10).onSnapshot(sn=>{LB.rows=sn.docs.map(d=>d.data());if(!sn.metadata.fromCache){LB.loaded=true;clearTimeout(timer);if(LB.msg.startsWith('Leaderboard'))LB.msg='';}},e=>{LB.err=true;clearTimeout(timer);LB.msg='Leaderboard unavailable right now';});
   db.collection('dance').orderBy('score','desc').limit(10).onSnapshot(sn=>{LB.dance=sn.docs.map(d=>d.data());},e=>{});
 }catch(e){}})();
-async function postScore(){const dance=G.state==='dance_results';if(!LB.db||LB.posting||!(dance?D:P)||!(G.state==='results'||dance))return;const name=pname.value.trim().slice(0,12);if(!name){LB.msg='Type your name first';pname.focus();return;}save('staydry_name',name);
+async function postScore(){const dance=G.state==='dance_results';if(!LB.ready||LB.posting||!(dance?D:P)||!(G.state==='results'||dance))return;const name=pname.value.trim().slice(0,12);if(!name){LB.msg='Type your name first';pname.focus();return;}save('staydry_name',name);
   const id=name.toLowerCase().replace(/[^a-z0-9_\-]/g,'')||'player';LB.posting=true;LB.msg='Posting...';
   const entry=dance?D.postEntry():{score:P.final,stars:P.finalStars,who:G.who,dry:Math.round(P.dry)};
-  try{const ref=LB.db.collection(dance?'dance':'scores').doc(id);const snap=await ref.get();const prev=snap.exists?snap.data():null;
-    if(prev&&prev.score>=entry.score){LB.msg=name+"'s best is still "+prev.score;}
-    else{await ref.set({name,...entry,at:new Date().toISOString()});LB.msg='Posted! 🏆';LB.posted=true;SFX.fanfare();}}
-  catch(e){if(e&&e.code==='invalid_argument'){LB.readOnly=true;LB.msg='Only invited editors can post scores';}else{LB.msg='Could not post. Try again.';}}
+  try{if(LB.mode==='kv'){const key=dance?KV_KEYS.dance:KV_KEYS.scores;const list=await kvGet(key);const prev=list.find(r=>r.id===id);
+      if(prev&&prev.score>=entry.score){LB.msg=name+"'s best is still "+prev.score;}
+      else{const next=list.filter(r=>r.id!==id);next.push({id,name,...entry,at:new Date().toISOString()});next.sort((a,b)=>b.score-a.score);await kvPut(key,next.slice(0,50));if(dance)LB.dance=next.slice(0,10);else LB.rows=next.slice(0,10);LB.msg='Posted! 🏆';LB.posted=true;SFX.fanfare();}}
+    else{const ref=LB.db.collection(dance?'dance':'scores').doc(id);const snap=await ref.get();const prev=snap.exists?snap.data():null;
+      if(prev&&prev.score>=entry.score){LB.msg=name+"'s best is still "+prev.score;}
+      else{await ref.set({name,...entry,at:new Date().toISOString()});LB.msg='Posted! 🏆';LB.posted=true;SFX.fanfare();}}}
+  catch(e){if(e&&e.code==='invalid_argument'){LB.readOnly=true;LB.msg='Only invited editors can post scores';}else if(e&&e.status===403){LB.msg='Scoreboard is not activated yet';}else{LB.msg='Could not post. Try again.';}}
   LB.posting=false;}
 pbtn.addEventListener('click',postScore);pname.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')postScore();});
 function placePost(){const dance=G.state==='dance_results';const show=(G.state==='results'||dance)&&LB.ready&&!LB.readOnly&&!LB.err;post.hidden=!show;if(!show)return;const ox=(wrap.clientWidth-W*scl)/2,oy=(wrap.clientHeight-H*scl)/2;const py=dance?D.postY:424;post.style.left=(ox+44*scl)+'px';post.style.top=(oy+py*scl)+'px';post.style.width=((W-88)*scl)+'px';post.style.height=(30*scl)+'px';post.style.fontSize=(13*scl)+'px';}
@@ -665,7 +674,7 @@ function drawDanceResults(){drawDanceScene();
   const cards=order[0][1].acc;const vals=[Math.min(10,Math.round(cards/10)),Math.min(10,Math.round(cards/10+0.5)),Math.min(10,Math.max(5,Math.round(cards/10-0.5)))];[150,210,270].forEach((x,i)=>{ctx.fillStyle='#fbf7ee';rr(x-24,370,48,40,4);ctx.fill();txt(String(vals[i]),x,390,20,'#1b2a44');});txt('the judges',W/2,422,10,'#f4e1b5');
   // family dance leaderboard
   ctx.fillStyle='rgba(255,255,255,.07)';rr(30,440,W-60,164,14);ctx.fill();txt('FAMILY DANCE TOP 5',44,454,11,'#f4e1b5','left',700);D.postY=466;
-  if(!LB.ready){txt('The family board works when opened from the claude.ai',W/2,500,11,'#f4e1b5');txt('link while signed in. Your best is saved on this device.',W/2,516,11,'#f4e1b5');}
+  if(!LB.ready){txt('Family dance board is offline right now.',W/2,504,11,'#f4e1b5');txt('Your best is saved on this device.',W/2,520,11,'#f4e1b5');}
   else{const top=LB.dance.slice(0,5);if(!top.length)txt(LB.loaded?'No dancers yet. Be the first!':'Loading...',W/2,530,12,'#f4e1b5');top.forEach((r,i)=>{const y=512+i*16;txt(`${i+1}.`,46,y,12,'#f4e1b5','left',700);txt(String(r.name).slice(0,12),64,y,12,'#fff','left',700);txt(CAST[r.who]?('as '+CAST[r.who].name):'',200,y,11,'#c9b8a8','left',500);txt('★'.repeat(r.stars||0),W-100,y,11,'#ffd166','right',700);txt(String(r.score),W-46,y,12,'#fff','right',700);});if(LB.msg)txt(LB.msg,W/2,596,11,LB.posted?'#b8f2c2':'#f4a261','center',700);}
   // cookies rain
   for(const c of D.cookies){ctx.save();ctx.translate(c.x,c.y);ctx.rotate(c.r);txt('🍪',0,0,22,'#fff');ctx.restore();}
@@ -695,6 +704,7 @@ addEventListener('keydown',e=>{if(G.state==='dance_play'){const L={d:0,f:1,j:2,k
 
 // ---------- loop
 function frame(ms){const dt=Math.min(0.05,Math.max(0,(ms-last)/1000));last=ms;perf=ms/1000;
+  if(LB.mode==='kv'&&perf-LB.lastKv>30&&(G.state==='title'||G.state==='results'||G.state==='dance_results'||G.state==='dance_menu'))kvRefresh();
   if(G.state==='play')updatePlay(dt);else if(G.state==='finale')updateFinale(dt);else if(G.state==='results')resultsT+=dt;else if(G.state.startsWith('dance'))updateDance(dt);
   ctx.setTransform(scl*dpr,0,0,scl*dpr,0,0);hits=[];
   ({title:drawTitle,select:drawSelect,intro:drawIntro,play:drawPlay,finale:drawFinale,results:drawResults,postcard:drawPostcard,dance_menu:drawDanceMenu,dance_ready:drawDance,dance_play:drawDance,dance_turn:drawDanceTurn,dance_results:drawDanceResults})[G.state]();placePost();

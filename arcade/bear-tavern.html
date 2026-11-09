@@ -1166,20 +1166,23 @@ function toMenu(){
   loadTitleLb();
 }
 
-/* ---------- family leaderboard (kvdb.io, shared with the Arcade page) ---------- */
-// One kvdb key per game, each a JSON array of {id,name,score,mode,stars,at}. Anyone with the link can post.
+/* ---------- family leaderboard (shared store, same pattern as stay-dry.html) ---------- */
+// One list per game, a JSON array of {id,name,score,mode,stars,at}. Anyone with the link can post.
+// Set FB_URL to the database URL from the Firebase console (looks like https://<project>-default-rtdb.firebaseio.com). Empty = fall back to the kvdb.io bucket.
+const FB_URL="";
 const KV_URL="https://kvdb.io/urf38N9LXMNzSdbEGoX8K";
-const LB_KEY="arcade_bear";
-async function kvGet(key){
-  const r=await fetch(KV_URL+"/"+key+"?t="+Date.now(),{cache:"no-store"});
-  if(r.status===404) return [];
-  if(!r.ok){ const e=new Error("kv "+r.status); e.status=r.status; throw e; }
-  const v=await r.json(); return Array.isArray(v)?v:[];
-}
-async function kvPut(key,val){
-  const r=await fetch(KV_URL+"/"+key,{method:"POST",body:JSON.stringify(val)});
-  if(!r.ok){ const e=new Error("kv "+r.status); e.status=r.status; throw e; }
-}
+function storeErr(tag,r){ const e=new Error(tag+" "+r.status); e.status=r.status; return e; }
+function asList(v){ return Array.isArray(v)?v:(v&&typeof v==="object"?Object.values(v):[]); }
+const STORE=FB_URL?{
+  name:"firebase",keys:{scores:"bear"},
+  url(key){ return FB_URL.replace(/\/$/,"")+"/arcade/"+key+".json"; },
+  async get(key){ const r=await fetch(this.url(key),{cache:"no-store"}); if(!r.ok) throw storeErr("fb",r); return asList(await r.json()); },
+  async put(key,val){ const r=await fetch(this.url(key),{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(val)}); if(!r.ok) throw storeErr("fb",r); }
+}:{
+  name:"kvdb",keys:{scores:"arcade_bear"},
+  async get(key){ const r=await fetch(KV_URL+"/"+key+"?t="+Date.now(),{cache:"no-store"}); if(r.status===404) return []; if(!r.ok) throw storeErr("kv",r); return asList(await r.json()); },
+  async put(key,val){ const r=await fetch(KV_URL+"/"+key,{method:"POST",body:JSON.stringify(val)}); if(!r.ok) throw storeErr("kv",r); }
+};
 async function postScore(){
   const btn=$("lbPost"), msg=$("lbMsg");
   const name=($("lbName").value||"").replace(/[<>&"]/g,"").trim().slice(0,12);
@@ -1189,7 +1192,7 @@ async function postScore(){
   try{ localStorage.setItem("arcade_name",name); }catch(e){}
   const id=name.toLowerCase().replace(/[^a-z0-9_\-]/g,"")||"player";
   try{
-    const list=await kvGet(LB_KEY);
+    const list=await STORE.get(STORE.keys.scores);
     const prev=list.find(e=>e.id===id&&e.mode===mode);
     if(prev&&(+prev.score||0)>=score){
       msg.textContent=name+"'s best is still "+(+prev.score||0)+" 🏆"; btn.disabled=false; return;
@@ -1197,11 +1200,11 @@ async function postScore(){
     const next=list.filter(e=>!(e.id===id&&e.mode===mode));
     next.push({id,name,score:score,mode,stars:0,at:new Date().toISOString()});
     next.sort((a,b)=>(b.score||0)-(a.score||0));
-    await kvPut(LB_KEY,next.slice(0,50));
+    await STORE.put(STORE.keys.scores,next.slice(0,50));
     msg.textContent="Posted! Check the Arcade page 🏆";
     loadTitleLb();
   }catch(e){
-    msg.textContent=(e&&e.status===403)?"Scoreboard is not activated yet"
+    msg.textContent=(e&&(e.status===403||e.status===401))?"Scoreboard is not activated yet"
       :"Couldn't reach the leaderboard. Try again on the family website!";
     btn.disabled=false;
   }
@@ -1213,7 +1216,7 @@ try{ $("lbName").value=localStorage.getItem("arcade_name")||""; }catch(e){}
 const LB_MODES={forever:"Blaster",aster:"Asteroids"};
 async function loadTitleLb(){
   try{
-    const rows=(await kvGet(LB_KEY)).slice().sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,5);
+    const rows=(await STORE.get(STORE.keys.scores)).slice().sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,5);
     if(!rows.length) return;
     $("titleLbList").innerHTML=rows.map((e,i)=>
       `<li><span>${i+1}. ${String(e.name||"?").replace(/[<>&]/g,"").slice(0,12)}</span>`+

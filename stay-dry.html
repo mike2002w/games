@@ -504,12 +504,22 @@ function drawResults(){drawSky();drawBanks(false);drawWater(125,760);
 // ---------- family leaderboard (artifact db; absent when opened without it)
 const post=document.getElementById('post'),pname=document.getElementById('pname'),pbtn=document.getElementById('pbtn');
 const LB={db:null,mode:null,ready:false,rows:[],dance:[],loaded:false,err:false,readOnly:false,msg:'',posting:false,posted:false,lastKv:-99};
-// Fallback store for copies outside claude.ai (GitHub Pages): kvdb.io bucket, two JSON lists. Anyone with the link can post; scores are tamperable by design.
-const KV_URL='https://kvdb.io/urf38N9LXMNzSdbEGoX8K',KV_KEYS={scores:'staydry_scores',dance:'staydry_dance'};
-async function kvGet(key){const r=await fetch(KV_URL+'/'+key+'?t='+Date.now(),{cache:'no-store'});if(r.status===404)return[];if(!r.ok)throw new Error('kv '+r.status);const v=await r.json();return Array.isArray(v)?v:[];}
-async function kvPut(key,val){const r=await fetch(KV_URL+'/'+key,{method:'POST',body:JSON.stringify(val)});if(!r.ok){const e=new Error('kv '+r.status);e.status=r.status;throw e;}}
-async function kvRefresh(){if(LB.mode!=='kv')return;LB.lastKv=perf;try{const[a,b]=await Promise.all([kvGet(KV_KEYS.scores),kvGet(KV_KEYS.dance)]);LB.rows=a.slice().sort((x,y)=>y.score-x.score).slice(0,10);LB.dance=b.slice().sort((x,y)=>y.score-x.score).slice(0,10);LB.loaded=true;LB.err=false;}catch(e){if(!LB.loaded){LB.err=true;LB.msg='Leaderboard offline right now';}}}
-async function initKv(){try{const[a,b]=await Promise.all([kvGet(KV_KEYS.scores),kvGet(KV_KEYS.dance)]);LB.mode='kv';LB.ready=true;LB.loaded=true;LB.lastKv=perf;LB.rows=a.slice().sort((x,y)=>y.score-x.score).slice(0,10);LB.dance=b.slice().sort((x,y)=>y.score-x.score).slice(0,10);}catch(e){}}
+// Shared store for copies outside claude.ai (GitHub Pages). Preferred: Firebase Realtime Database over REST, two JSON lists under /staydry.
+// Set FB_URL to the database URL from the Firebase console (looks like https://<project>-default-rtdb.firebaseio.com). Empty = fall back to the kvdb.io bucket.
+const FB_URL='';
+const KV_URL='https://kvdb.io/urf38N9LXMNzSdbEGoX8K';
+const STORE=FB_URL?{
+  name:'firebase',keys:{scores:'scores',dance:'dance'},
+  async get(key){const r=await fetch(FB_URL.replace(/\/$/,'')+'/staydry/'+key+'.json',{cache:'no-store'});if(!r.ok){const e=new Error('fb '+r.status);e.status=r.status;throw e;}const v=await r.json();return Array.isArray(v)?v:[];},
+  async put(key,val){const r=await fetch(FB_URL.replace(/\/$/,'')+'/staydry/'+key+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(val)});if(!r.ok){const e=new Error('fb '+r.status);e.status=r.status;throw e;}}
+}:{
+  name:'kvdb',keys:{scores:'staydry_scores',dance:'staydry_dance'},
+  async get(key){const r=await fetch(KV_URL+'/'+key+'?t='+Date.now(),{cache:'no-store'});if(r.status===404)return[];if(!r.ok){const e=new Error('kv '+r.status);e.status=r.status;throw e;}const v=await r.json();return Array.isArray(v)?v:[];},
+  async put(key,val){const r=await fetch(KV_URL+'/'+key,{method:'POST',body:JSON.stringify(val)});if(!r.ok){const e=new Error('kv '+r.status);e.status=r.status;throw e;}}
+};
+const top10=a=>a.slice().sort((x,y)=>y.score-x.score).slice(0,10);
+async function kvRefresh(){if(LB.mode!=='kv')return;LB.lastKv=perf;try{const[a,b]=await Promise.all([STORE.get(STORE.keys.scores),STORE.get(STORE.keys.dance)]);LB.rows=top10(a);LB.dance=top10(b);LB.loaded=true;LB.err=false;}catch(e){if(!LB.loaded){LB.err=true;LB.msg='Leaderboard offline right now';}}}
+async function initKv(){try{const[a,b]=await Promise.all([STORE.get(STORE.keys.scores),STORE.get(STORE.keys.dance)]);LB.mode='kv';LB.store=STORE.name;LB.ready=true;LB.loaded=true;LB.lastKv=perf;LB.rows=top10(a);LB.dance=top10(b);}catch(e){}}
 try{pname.value=load('staydry_name','');}catch(e){}
 (async()=>{try{if(!window.claude||typeof window.claude.use!=='function'){await initKv();return;}const db=await window.claude.use('db');if(!db){await initKv();return;}LB.db=db;LB.mode='db';LB.ready=true;
   const timer=setTimeout(()=>{if(!LB.loaded)LB.msg='Leaderboard is slow to load...';},10000);
@@ -519,13 +529,13 @@ try{pname.value=load('staydry_name','');}catch(e){}
 async function postScore(){const dance=G.state==='dance_results';if(!LB.ready||LB.posting||!(dance?D:P)||!(G.state==='results'||dance))return;const name=pname.value.trim().slice(0,12);if(!name){LB.msg='Type your name first';pname.focus();return;}save('staydry_name',name);
   const id=name.toLowerCase().replace(/[^a-z0-9_\-]/g,'')||'player';LB.posting=true;LB.msg='Posting...';
   const entry=dance?D.postEntry():{score:P.final,stars:P.finalStars,who:G.who,dry:Math.round(P.dry)};
-  try{if(LB.mode==='kv'){const key=dance?KV_KEYS.dance:KV_KEYS.scores;const list=await kvGet(key);const prev=list.find(r=>r.id===id);
+  try{if(LB.mode==='kv'){const key=dance?STORE.keys.dance:STORE.keys.scores;const list=await STORE.get(key);const prev=list.find(r=>r.id===id);
       if(prev&&prev.score>=entry.score){LB.msg=name+"'s best is still "+prev.score;}
-      else{const next=list.filter(r=>r.id!==id);next.push({id,name,...entry,at:new Date().toISOString()});next.sort((a,b)=>b.score-a.score);await kvPut(key,next.slice(0,50));if(dance)LB.dance=next.slice(0,10);else LB.rows=next.slice(0,10);LB.msg='Posted! 🏆';LB.posted=true;SFX.fanfare();}}
+      else{const next=list.filter(r=>r.id!==id);next.push({id,name,...entry,at:new Date().toISOString()});next.sort((a,b)=>b.score-a.score);await STORE.put(key,next.slice(0,50));if(dance)LB.dance=next.slice(0,10);else LB.rows=next.slice(0,10);LB.msg='Posted! 🏆';LB.posted=true;SFX.fanfare();}}
     else{const ref=LB.db.collection(dance?'dance':'scores').doc(id);const snap=await ref.get();const prev=snap.exists?snap.data():null;
       if(prev&&prev.score>=entry.score){LB.msg=name+"'s best is still "+prev.score;}
       else{await ref.set({name,...entry,at:new Date().toISOString()});LB.msg='Posted! 🏆';LB.posted=true;SFX.fanfare();}}}
-  catch(e){if(e&&e.code==='invalid_argument'){LB.readOnly=true;LB.msg='Only invited editors can post scores';}else if(e&&e.status===403){LB.msg='Scoreboard is not activated yet';}else{LB.msg='Could not post. Try again.';}}
+  catch(e){if(e&&e.code==='invalid_argument'){LB.readOnly=true;LB.msg='Only invited editors can post scores';}else if(e&&(e.status===403||e.status===401)){LB.msg='Scoreboard is not activated yet';}else{LB.msg='Could not post. Try again.';}}
   LB.posting=false;}
 pbtn.addEventListener('click',postScore);pname.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')postScore();});
 function placePost(){const dance=G.state==='dance_results';const show=(G.state==='results'||dance)&&LB.ready&&!LB.readOnly&&!LB.err;post.hidden=!show;if(!show)return;const ox=(wrap.clientWidth-W*scl)/2,oy=(wrap.clientHeight-H*scl)/2;const py=dance?D.postY:424;post.style.left=(ox+44*scl)+'px';post.style.top=(oy+py*scl)+'px';post.style.width=((W-88)*scl)+'px';post.style.height=(30*scl)+'px';post.style.fontSize=(13*scl)+'px';}

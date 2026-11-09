@@ -5,7 +5,7 @@
 <title>The Weintraub Game Room</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta property="og:title" content="The Weintraub Game Room 🎮">
-<meta property="og:description" content="Two worlds of games made with love: Sienna &amp; Phoebe's Rhode Island Adventure and the Cousins' Arcade.">
+<meta property="og:description" content="Three worlds of games made with love: Stay Dry! for Ella &amp; Landon, Sienna &amp; Phoebe's Rhode Island Adventure, and the Cousins' Arcade.">
 <meta property="og:image" content="https://mike2002w.github.io/games/arcade/arcade-preview.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -37,6 +37,9 @@
   .worldCard:active{transform:translateY(2px)}
   .worldCard.ri{box-shadow:0 6px 0 var(--navy)}
   .worldCard.arcade{box-shadow:0 6px 0 var(--berry-dark)}
+  .worldCard.dry{box-shadow:0 6px 0 #0b1a30}
+  .dry h2{color:#1b6f8a}
+  .dry .playBtn{background:#1b6f8a;box-shadow:0 4px 0 #0b1a30}
   .worldCard img{width:100%;border-radius:14px;border:3px solid var(--choc);display:block;
     aspect-ratio:1200/630;object-fit:cover;background:#fff}
   .worldCard h2{font-size:clamp(18px,4.6vw,26px);line-height:1.15;text-wrap:balance}
@@ -56,6 +59,13 @@
     <small>Games made with love, for the little people we love 💕</small>
   </div>
   <div id="cards">
+    <a class="worldCard dry" href="stay-dry.html">
+      <img src="stay-dry-preview.jpg" alt="Stay Dry! preview">
+      <h2>🚤 Stay Dry! The Fyre Drill Game</h2>
+      <p>For Ella and Landon: dodge the water jets on the Isle of Berk boat battle, blast the
+        flames, win the Oktoberfest dance-off, and watch Ryne get soaked. Family leaderboard inside!</p>
+      <span class="playBtn">PLAY ▶</span>
+    </a>
     <a class="worldCard ri" href="rhode-island-game.html">
       <img src="rhode-island-game-preview.jpg" alt="Rhode Island Adventure preview">
       <h2>🎆 Sienna &amp; Phoebe's Rhode Island Adventure</h2>
@@ -71,6 +81,6 @@
       <span class="playBtn">PLAY ▶</span>
     </a>
   </div>
-  <footer>Sienna &amp; Phoebe's Adventure · Emma, Ava &amp; Sienna's Arcade</footer>
+  <footer>Ella &amp; Landon's Fyre Drill · Sienna &amp; Phoebe's Adventure · Emma, Ava &amp; Sienna's Arcade</footer>
 </body>
 </html>

@@ -12,7 +12,13 @@
 html,body{height:100%}
 body{margin:0;background:var(--bg);color:var(--fg);font-family:Fredoka,"Baloo 2","Arial Rounded MT Bold",system-ui,sans-serif;overflow:hidden;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0;box-sizing:border-box}
-#wrap{height:100%;display:flex;align-items:center;justify-content:center}
+#wrap{height:100%;display:flex;align-items:center;justify-content:center;position:relative}
+#post{position:absolute;display:flex;gap:.4em;box-sizing:border-box}
+#post[hidden]{display:none}
+#post input{flex:1;min-width:0;border:2px solid #2b466e;border-radius:.6em;background:#0f1f33;color:#f4f6fb;font:inherit;font-weight:700;padding:0 .6em;outline:none}
+#post input:focus{border-color:#ffd166}
+#post button{flex:0 0 auto;border:0;border-radius:.6em;background:#4cc9f0;color:#07111f;font:inherit;font-weight:700;padding:0 .9em;cursor:pointer}
+#post button:active{transform:translateY(1px)}
 canvas{display:block;border-radius:14px;box-shadow:0 0 0 1px #1d3252,0 20px 60px rgba(0,0,0,.6);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
 </style>
 <meta property="og:title" content="Stay Dry! The Fyre Drill Game">
@@ -22,7 +28,7 @@ canvas{display:block;border-radius:14px;box-shadow:0 0 0 1px #1d3252,0 20px 60px
 <meta name="robots" content="noindex">
 </head>
 <body>
-<div id="wrap"><canvas id="c"></canvas></div>
+<div id="wrap"><canvas id="c"></canvas><div id="post" hidden><input id="pname" maxlength="12" placeholder="Your name" autocomplete="off" aria-label="Your name"><button id="pbtn" type="button">POST SCORE</button></div></div>
 <script>
 'use strict';
 const W=420,H=760,TAU=Math.PI*2;
@@ -191,7 +197,7 @@ const PHASES=[
 const G={state:'title',who:load('staydry_who','ella'),best:load('staydry_best',0),stars:load('staydry_stars',0)};
 let P=null,F=null,hits=[],last=0,introIdx=0,resultsT=0;
 
-function startPlay(){P={rideT:0,seat:1,dry:100,score:0,flamesOut:0,dunks:0,blocks:0,dodges:0,hitCount:0,shieldT:0,shieldCd:0,rivals:[],jets:[],geysers:[],flames:[],shots:[],parts:[],pops:[],banner:null,phase:null,phaseIdx:-1,nextJet:3,nextFlame:1.2,nextGeyser:0,dragon:null,shake:0,wetFlash:0,pw:{},soakedSaid:false,rivalSide:1,lastMoveT:0};G.state='play';}
+function startPlay(){LB.msg='';LB.posted=false;P={rideT:0,seat:1,dry:100,score:0,flamesOut:0,dunks:0,blocks:0,dodges:0,hitCount:0,shieldT:0,shieldCd:0,rivals:[],jets:[],geysers:[],flames:[],shots:[],parts:[],pops:[],banner:null,phase:null,phaseIdx:-1,nextJet:3,nextFlame:1.2,nextGeyser:0,dragon:null,shake:0,wetFlash:0,pw:{},soakedSaid:false,rivalSide:1,lastMoveT:0};G.state='play';}
 function pop(text,x,y,color='#fff',size=20){P.pops.push({text,x,y,color,size,t:0});}
 function banner(name,sub){P.banner={name,sub,t:0};}
 function spawnParts(x,y,n,col,spd=160,life=0.6,g=600){for(let i=0;i<n;i++){const a=rnd(0,TAU),v=rnd(spd*0.3,spd);P.parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-spd*0.6,t:0,life:rnd(life*0.6,life),col,g,r:rnd(2,4.5)});}}
@@ -399,7 +405,8 @@ function drawTitle(){drawSky();drawBanks();drawWater(125,760);
   txt('THE FYRE DRILL GAME',W/2,300,16,'#dfe8ff','center',700);txt('Isle of Berk · Epic Universe',W/2,322,13,'#9fb3d1','center',500);
   txt('for Ella & Landon · from Michael',W/2,348,13,'#ffd166','center',500);
   const pulse=0.75+0.25*Math.sin(perf*4);ctx.globalAlpha=pulse;otxt('TAP TO PLAY',W/2,470,30,'#fff','#0b1a30',6);ctx.globalAlpha=1;
-  if(G.best>0){txt(`Best: ${G.best}  ${'★'.repeat(G.stars)}${'☆'.repeat(3-G.stars)}`,W/2,505,14,'#ffd166','center',700);}
+  if(G.best>0){txt(`Your best: ${G.best}  ${'★'.repeat(G.stars)}${'☆'.repeat(3-G.stars)}`,W/2,505,14,'#ffd166','center',700);}
+  if(LB.rows.length){txt('FAMILY TOP 3',W/2,532,11,'#9fb3d1','center',700);LB.rows.slice(0,3).forEach((r,i)=>txt(`${i+1}. ${r.name}  ·  ${r.score}`,W/2,550+i*16,13,i===0?'#ffd166':'#dfe8ff','center',700));}
   hits.push({x:0,y:0,w:W,h:H,fn:()=>{ac();G.state='select';SFX.tap();}});
   drawSoundBtn();}
 function drawSoundBtn(){const x=W-34,y=H-34;ctx.fillStyle='rgba(6,13,28,.7)';circ(x,y,20);ctx.fill();txt(AU.on?'🔊':'🔇',x,y+1,18,'#fff');hits.unshift({x:x-24,y:y-24,w:48,h:48,fn:()=>{AU.on=!AU.on;save('staydry_sound',AU.on);if(AU.on)SFX.tap();}});}
@@ -435,34 +442,60 @@ function drawIntro(){drawSky();drawBanks(false);drawWater(125,760);const pg=INTR
   const pulse=0.7+0.3*Math.sin(perf*4);ctx.globalAlpha=pulse;txt(introIdx<INTRO.length-1?'tap to continue':'TAP TO RIDE!',W/2,pg.howto?400:740,introIdx<INTRO.length-1?14:22,'#fff','center',700);ctx.globalAlpha=1;
   hits.push({x:0,y:0,w:W,h:H,fn:()=>{SFX.tap();introIdx++;if(introIdx>=INTRO.length)startPlay();}});}
 function drawResults(){drawSky();drawBanks(false);drawWater(125,760);
-  ctx.fillStyle='rgba(6,13,28,.86)';rr(14,14,W-28,H-28,22);ctx.fill();
-  otxt('THE RESULTS',W/2,46,30,'#ffd166','#0b1a30',6);
+  ctx.fillStyle='rgba(6,13,28,.88)';rr(14,14,W-28,H-28,22);ctx.fill();
+  otxt('THE RESULTS',W/2,42,28,'#ffd166','#0b1a30',6);
   // lineup
   const xs=[60,130,210,290,360];ORDER.forEach((k,i)=>{const isP=k===G.who;const wet=k==='ryne'?1:isP?1-P.dry/100:(P.pw[k]||0);const label=k==='ryne'?'SOAKED':wet<0.1?'DRY':wet<0.5?'damp':wet<0.9?'wet':'SOAKED';
-    drawPerson(xs[i],170,0.8,CAST[k],{wet,arms:k==='ryne'?'down':wet<0.1?'up':'down',mouth:k==='ryne'?'o':wet<0.5?'grin':'sad',shiver:k==='ryne'?1:0});
-    txt(CAST[k].name+(isP?' (you)':''),xs[i],186,11,'#dfe8ff','center',700);txt(label,xs[i],200,11,wet<0.1?'#ffd166':wet<0.9?'#9fb3d1':'#4cc9f0','center',700);});
+    drawPerson(xs[i],150,0.72,CAST[k],{wet,arms:k==='ryne'?'down':wet<0.1?'up':'down',mouth:k==='ryne'?'o':wet<0.5?'grin':'sad',shiver:k==='ryne'?1:0});
+    txt(CAST[k].name+(isP?' (you)':''),xs[i],164,11,'#dfe8ff','center',700);txt(label,xs[i],178,11,wet<0.1?'#ffd166':wet<0.9?'#9fb3d1':'#4cc9f0','center',700);});
   const dryLine=G.who==='ryne'?'You stayed dry until the very last second.':P.dry>=90?'You stayed BONE DRY!':P.dry>=50?'You got a little damp.':P.dry>0?'You got pretty wet.':'You got SOAKED.';
-  txt(dryLine,W/2,228,15,'#fff','center',700);otxt(G.who==='ryne'?'Ryne is always Ryne.':'...and Ryne? SOAKED.',W/2,254,20,'#4cc9f0','#0b1a30',4);
+  txt(dryLine,W/2,204,14,'#fff','center',700);otxt(G.who==='ryne'?'Ryne is always Ryne.':'...and Ryne? SOAKED.',W/2,228,19,'#4cc9f0','#0b1a30',4);
   // score box
-  ctx.fillStyle='rgba(255,255,255,.06)';rr(30,276,W-60,150,14);ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.06)';rr(30,248,W-60,126,14);ctx.fill();
   const rows=[['Fires put out',`${P.flamesOut} × 10`,P.flamesOut*10],['Rival boats dunked',`${P.dunks} × 25`,P.dunks*25],['Blocks + dodges',`${P.blocks+P.dodges} × 5`,(P.blocks+P.dodges)*5],['Dry bonus',`${Math.round(P.dry)}% × 2`,Math.round(P.dry)*2]];
-  rows.forEach((r,i)=>{const y=296+i*22;txt(r[0],44,y,13,'#dfe8ff','left',500);txt(r[1],W/2+40,y,12,'#9fb3d1','right',500);txt('+'+r[2],W-44,y,13,'#fff','right',700);});
-  ctx.strokeStyle='rgba(255,255,255,.15)';ctx.beginPath();ctx.moveTo(44,386);ctx.lineTo(W-44,386);ctx.stroke();
-  txt('TOTAL',44,404,15,'#ffd166','left',700);otxt(String(P.final),W-44,404,24,'#ffd166','#0b1a30',4,'right');
-  txt('★'.repeat(P.finalStars)+'☆'.repeat(3-P.finalStars),W/2,404,22,'#ffd166');
-  txt(P.final>=G.best&&P.final>0?'NEW BEST!':`Best: ${G.best}`,W/2,440,13,P.final>=G.best?'#b8f2c2':'#9fb3d1','center',700);
+  rows.forEach((r,i)=>{const y=264+i*18;txt(r[0],44,y,12,'#dfe8ff','left',500);txt(r[1],W/2+40,y,11,'#9fb3d1','right',500);txt('+'+r[2],W-44,y,12,'#fff','right',700);});
+  ctx.strokeStyle='rgba(255,255,255,.15)';ctx.beginPath();ctx.moveTo(44,338);ctx.lineTo(W-44,338);ctx.stroke();
+  txt('TOTAL',44,356,14,'#ffd166','left',700);otxt(String(P.final),W-44,356,22,'#ffd166','#0b1a30',4,'right');
+  txt('★'.repeat(P.finalStars)+'☆'.repeat(3-P.finalStars),W/2,356,20,'#ffd166');
+  txt(P.final>=G.best&&P.final>0?'NEW PERSONAL BEST!':`Your best: ${G.best}`,W/2,386,12,P.final>=G.best?'#b8f2c2':'#9fb3d1','center',700);
+  // family leaderboard
+  ctx.fillStyle='rgba(255,255,255,.06)';rr(30,398,W-60,160,14);ctx.fill();
+  txt('FAMILY TOP 5',44,412,11,'#9fb3d1','left',700);
+  if(!LB.ready){txt('The family leaderboard works when this is opened',W/2,452,12,'#9fb3d1');txt('from the claude.ai link while signed in.',W/2,468,12,'#9fb3d1');txt('Your own best is saved on this device.',W/2,492,12,'#6f86a8');}
+  else{if(LB.readOnly||LB.err){txt(LB.msg||'Leaderboard unavailable',W/2,440,12,'#f4a261');}
+    const top=LB.rows.slice(0,5);const y0=LB.readOnly||LB.err?462:470;
+    if(!top.length){txt(LB.loaded?'No scores yet. Be the first!':'Loading...',W/2,y0+20,12,'#9fb3d1');}
+    top.forEach((r,i)=>{const y=y0+i*16;const me=LB.posted&&pname.value.trim().toLowerCase()===String(r.name).toLowerCase();txt(`${i+1}.`,46,y,12,'#9fb3d1','left',700);txt(String(r.name).slice(0,12),64,y,12,me?'#ffd166':'#fff','left',700);txt(CAST[r.who]?('as '+CAST[r.who].name):'',200,y,11,'#6f86a8','left',500);txt('★'.repeat(r.stars||0),W-100,y,11,'#ffd166','right',700);txt(String(r.score),W-46,y,12,'#fff','right',700);});
+    if(LB.msg&&!LB.readOnly&&!LB.err)txt(LB.msg,W/2,548,11,LB.posted?'#b8f2c2':'#f4a261','center',700);}
   // dragon dryer gag
-  ctx.fillStyle='rgba(255,255,255,.06)';rr(30,456,W-60,170,14);ctx.fill();
-  ctx.fillStyle='#5a3a1e';rr(150,466,120,30,6);ctx.fill();txt('DRAGON DRYER',210,481,13,'#ffd166','center',700);txt('5 minutes · 2 fish',210,508,11,'#9fb3d1');
-  dragonDraw(110,560,0.9,perf*6,true);
-  // steam off Ryne
-  for(let i=0;i<6;i++){const ph=(perf*0.7+i*0.17)%1;ctx.fillStyle=`rgba(255,255,255,${0.35*(1-ph)})`;circ(300+Math.sin(perf*3+i)*8,590-ph*60,5+ph*8);ctx.fill();}
-  drawPerson(300,612,0.8,CAST.ryne,{wet:Math.max(0,1-((resultsT*0.12)%1)),arms:'down',mouth:'flat',shiver:1});
-  bubble('Worth it.',300,540,12,1,100);
+  ctx.fillStyle='rgba(255,255,255,.06)';rr(30,566,W-60,86,14);ctx.fill();
+  ctx.fillStyle='#5a3a1e';rr(160,572,100,22,6);ctx.fill();txt('DRAGON DRYER',210,583,11,'#ffd166','center',700);txt('5 minutes · 2 fish',210,603,10,'#9fb3d1');
+  dragonDraw(100,628,0.55,perf*6,true);
+  for(let i=0;i<5;i++){const ph=(perf*0.7+i*0.2)%1;ctx.fillStyle=`rgba(255,255,255,${0.35*(1-ph)})`;circ(300+Math.sin(perf*3+i)*6,628-ph*34,3+ph*5);ctx.fill();}
+  drawPerson(300,646,0.55,CAST.ryne,{wet:Math.max(0,1-((resultsT*0.12)%1)),arms:'down',mouth:'flat',shiver:1});
+  bubble('Worth it.',300,606,10,1,80);
   // buttons
-  const by=660;ctx.fillStyle='#ffd166';rr(40,by,160,54,16);ctx.fill();txt('PLAY AGAIN',120,by+27,17,'#07111f','center',700);hits.push({x:40,y:by,w:160,h:54,fn:()=>{SFX.tap();startPlay();}});
-  ctx.fillStyle='rgba(255,255,255,.12)';rr(220,by,160,54,16);ctx.fill();txt('CHANGE PLAYER',300,by+27,15,'#fff','center',700);hits.push({x:220,y:by,w:160,h:54,fn:()=>{SFX.tap();G.state='select';}});
+  const by=666;ctx.fillStyle='#ffd166';rr(40,by,160,50,16);ctx.fill();txt('PLAY AGAIN',120,by+25,16,'#07111f','center',700);hits.push({x:40,y:by,w:160,h:50,fn:()=>{SFX.tap();startPlay();}});
+  ctx.fillStyle='rgba(255,255,255,.12)';rr(220,by,160,50,16);ctx.fill();txt('CHANGE PLAYER',300,by+25,14,'#fff','center',700);hits.push({x:220,y:by,w:160,h:50,fn:()=>{SFX.tap();G.state='select';}});
   drawSoundBtn();}
+
+// ---------- family leaderboard (artifact db; absent when opened without it)
+const post=document.getElementById('post'),pname=document.getElementById('pname'),pbtn=document.getElementById('pbtn');
+const LB={db:null,ready:false,rows:[],loaded:false,err:false,readOnly:false,msg:'',posting:false,posted:false};
+try{pname.value=load('staydry_name','');}catch(e){}
+(async()=>{try{if(!window.claude||typeof window.claude.use!=='function')return;const db=await window.claude.use('db');if(!db)return;LB.db=db;LB.ready=true;
+  const timer=setTimeout(()=>{if(!LB.loaded)LB.msg='Leaderboard is slow to load...';},10000);
+  db.collection('scores').orderBy('score','desc').limit(10).onSnapshot(sn=>{LB.rows=sn.docs.map(d=>d.data());if(!sn.metadata.fromCache){LB.loaded=true;clearTimeout(timer);if(LB.msg.startsWith('Leaderboard'))LB.msg='';}},e=>{LB.err=true;clearTimeout(timer);LB.msg='Leaderboard unavailable right now';});
+}catch(e){}})();
+async function postScore(){if(!LB.db||LB.posting||!P||G.state!=='results')return;const name=pname.value.trim().slice(0,12);if(!name){LB.msg='Type your name first';pname.focus();return;}save('staydry_name',name);
+  const id=name.toLowerCase().replace(/[^a-z0-9_\-]/g,'')||'player';LB.posting=true;LB.msg='Posting...';
+  try{const ref=LB.db.collection('scores').doc(id);const snap=await ref.get();const prev=snap.exists?snap.data():null;
+    if(prev&&prev.score>=P.final){LB.msg=name+"'s best is still "+prev.score;}
+    else{await ref.set({name,score:P.final,stars:P.finalStars,who:G.who,dry:Math.round(P.dry),at:new Date().toISOString()});LB.msg='Posted! 🏆';LB.posted=true;SFX.fanfare();}}
+  catch(e){if(e&&e.code==='invalid_argument'){LB.readOnly=true;LB.msg='Only invited editors can post scores';}else{LB.msg='Could not post. Try again.';}}
+  LB.posting=false;}
+pbtn.addEventListener('click',postScore);pname.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')postScore();});
+function placePost(){const show=G.state==='results'&&LB.ready&&!LB.readOnly&&!LB.err;post.hidden=!show;if(!show)return;const ox=(wrap.clientWidth-W*scl)/2,oy=(wrap.clientHeight-H*scl)/2;post.style.left=(ox+44*scl)+'px';post.style.top=(oy+424*scl)+'px';post.style.width=((W-88)*scl)+'px';post.style.height=(30*scl)+'px';post.style.fontSize=(13*scl)+'px';}
 
 // ---------- input
 function onPointer(x,y){
@@ -485,9 +518,9 @@ addEventListener('keydown',e=>{if(G.state==='play'){if(e.key==='ArrowLeft'){move
 function frame(ms){const dt=Math.min(0.05,Math.max(0,(ms-last)/1000));last=ms;perf=ms/1000;
   if(G.state==='play')updatePlay(dt);else if(G.state==='finale')updateFinale(dt);else if(G.state==='results')resultsT+=dt;
   ctx.setTransform(scl*dpr,0,0,scl*dpr,0,0);hits=[];
-  ({title:drawTitle,select:drawSelect,intro:drawIntro,play:drawPlay,finale:drawFinale,results:drawResults})[G.state]();
+  ({title:drawTitle,select:drawSelect,intro:drawIntro,play:drawPlay,finale:drawFinale,results:drawResults})[G.state]();placePost();
   requestAnimationFrame(frame);}
-window.__debug={G:()=>G,P:()=>P,F:()=>F,tick:frame,start:startPlay,finale:startFinale,results:finishGame,skipTo:t=>{P.rideT=t;},setDry:d=>{P.dry=d;},
+window.__debug={G:()=>G,P:()=>P,F:()=>F,LB,tick:frame,start:startPlay,finale:startFinale,results:finishGame,skipTo:t=>{P.rideT=t;},setDry:d=>{P.dry=d;},
   sim:(secs,bot=false,step=1/60)=>{let acc=0;for(let t=0;t<secs;t+=step){perf+=step;acc+=step;if(G.state==='play'){updatePlay(step);if(bot&&acc>=0.5){acc=0;hits=[];if(P.flames.length)onPointer(P.flames[0].x,P.flames[0].y-10);const j=P.jets.find(j=>j.seat===P.seat&&j.t<j.warn);if(j&&Math.random()<0.7)moveSeat((P.seat+1)%3);const r=P.rivals.find(r=>r.dunked<=0&&!r.leaving&&r.x>95&&r.x<W-95);if(r&&Math.random()<0.3)onPointer(r.x+30,r.y-63);}}else if(G.state==='finale')updateFinale(step);else if(G.state==='results')resultsT+=step;}return{state:G.state,rideT:P&&P.rideT,dry:P&&P.dry,score:P&&P.score,flamesOut:P&&P.flamesOut,dunks:P&&P.dunks,hits:P&&P.hitCount,blocks:P&&P.blocks,dodges:P&&P.dodges};}};
 try{document.fonts&&document.fonts.load('700 20px Fredoka');}catch(e){}
 requestAnimationFrame(frame);
